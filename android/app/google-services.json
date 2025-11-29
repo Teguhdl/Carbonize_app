@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "913878496194",
+    "project_id": "carbon-footprint-a723a",
+    "storage_bucket": "carbon-footprint-a723a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:913878496194:android:c83b4d00d8579b30015c5b",
+        "android_client_info": {
+          "package_name": "com.tacarbonfootprint.carbonize_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpTIDKPXNkQUOWCNhP_6nSnN4utITLzik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
