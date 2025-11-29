@@ -5,17 +5,32 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
   sonarqube:
     name: SonarQube
     runs-on: windows-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      # The analysis requires to retrieve dependencies and build successfully
-      - name: Build
-        run:  flutter pub get
+          fetch-depth: 0  # Full clone untuk analisis SonarQube
+
+      # Install Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      # Get Dependencies
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      # OPTIONAL (bisa dihapus kalau tidak mau build)
+      - name: Build Debug APK
+        run: flutter build apk --debug
+
+      # SonarQube Scan
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
