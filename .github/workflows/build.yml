@@ -9,24 +9,24 @@ on:
 jobs:
   sonarqube:
     name: SonarQube
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full clone untuk analisis SonarQube
+          fetch-depth: 0
 
       # Install Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          channel: "stable"
 
-      # Get Dependencies
+      # Get dependencies
       - name: Flutter Pub Get
         run: flutter pub get
 
-      # OPTIONAL (bisa dihapus kalau tidak mau build)
+      # OPTIONAL (boleh dihapus jika tidak ingin build apk)
       - name: Build Debug APK
         run: flutter build apk --debug
 
