@@ -4,10 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/constants.dart';
+import '../../../core/models/domain_models.dart';
 import '../../auth/services/auth_service_adapter.dart';
 import '../../profile/services/user_service_adapter.dart';
-import '../services/emission_service.dart';
-import '../services/consumption_service.dart';
+import '../services/carbon_service.dart';
 
 class EditFuelConsumptionScreen extends StatefulWidget {
   final String itemType; // Vehicle type for public transport
@@ -37,41 +37,17 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
   // Services
   final AuthServiceAdapter _authService = AuthServiceAdapter();
   final UserServiceAdapter _userService = UserServiceAdapter();
-  final EmissionService _emissionService = EmissionService();
-  
-  // Public transport types (must match backend names after stripping '(Emission)' suffix)
-  List<String> _publicTransportTypes = [
-    'City Bus',
-    'Intercity Bus',
-    'Minibus / Angkot',
-    'Online Motorcycle',
-    'Online Taxi',
-    'MRT',
-  ];
-  
-  // Vehicle types for Private Vehicle
-  final List<String> _vehicleTypes = [
-    'City Car',
-    'Motorcycle',
-    'Sedan / Medium Car',
-    'SUV / MPV',
-    'Diesel Car',
-    'Hybrid Car',
-  ];
-  
-  // Fuel type options
-  final List<String> _fuelTypes = [
-    'Pertalite',
-    'Pertamax',
-    'Pertamax Turbo',
-    'Shell Super',
-    'Shell V-Power',
-    'Shell V-Power Nitro+',
-    'Solar / Bio Solar',
-    'Dexlite',
-    'Pertamina Dex',
-    'Shell V-Power Diesel',
-  ];
+  final CarbonService _carbonService = CarbonService();
+
+  // Master data loaded from API
+  List<VehicleType>    _vehicleTypeObjects = [];
+  List<FuelType>       _fuelTypeObjects    = [];
+  List<TransitVehicle> _transitObjects     = [];
+
+  // Names for dropdown display
+  List<String> _publicTransportTypes = [];
+  List<String> _vehicleTypes = [];
+  List<String> _fuelTypes = [];
   
   // Selected values
   String? _selectedVehicleType;
@@ -106,8 +82,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
   bool _useCustomEfficiency = false;
   final TextEditingController _efficiencyController = TextEditingController();
   
-  // For metadata storage
-  Map<String, dynamic>? _metadata;
+
   
   @override
   void initState() {
@@ -119,61 +94,32 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
     _selectedDate = widget.date;
     _selectedImage = widget.image;
     
-    // Load metadata for private vehicle entries
-    _loadEntryMetadata();
+    // Load dropdown data from API
+    _loadDropdownData();
   }
-  
-  // Load entry metadata from API
-  Future<void> _loadEntryMetadata() async {
+
+  Future<void> _loadDropdownData() async {
+    setState(() => _isLoading = true);
     try {
-      setState(() {
-        _isLoading = true;
-      });
-      
-      final consumptionService = ConsumptionService();
-      final entry = await consumptionService.getEntry(int.parse(widget.documentId));
-      
-      if (entry.metadata != null) {
-        _metadata = entry.metadata;
-        
-        if (widget.transportationMode == 'Private Vehicle') {
-          // Set fuel type from metadata
-          if (_metadata!.containsKey('fuelType')) {
-            setState(() {
-              _selectedFuelType = _metadata!['fuelType'];
-            });
-          }
-          
-          // Set custom efficiency from metadata
-          if (_metadata!.containsKey('useCustomEfficiency') && 
-              (_metadata!['useCustomEfficiency'] == true || _metadata!['useCustomEfficiency'] == 'true') &&
-              _metadata!.containsKey('customEfficiency')) {
-            setState(() {
-              _useCustomEfficiency = true;
-              _efficiencyController.text = _metadata!['customEfficiency'].toString();
-            });
-          }
-        } else if (widget.transportationMode == 'Public Transport') {
-          // Set vehicle type from metadata for public transport
-          if (_metadata!.containsKey('vehicleType')) {
-            setState(() {
-              _selectedVehicleType = _metadata!['vehicleType'];
-              // Ensure it's in the list
-              if (!_publicTransportTypes.contains(_selectedVehicleType)) {
-                _publicTransportTypes.add(_selectedVehicleType!);
-              }
-            });
-          }
-        }
-      }
-    } catch (e) {
-      print('Error loading entry metadata: $e');
-    } finally {
+      final results = await Future.wait([
+        _carbonService.getPrivateVehicles(),
+        _carbonService.getFuelTypes(),
+        _carbonService.getPublicVehicles(),
+      ]);
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _vehicleTypeObjects = results[0] as List<VehicleType>;
+          _fuelTypeObjects    = results[1] as List<FuelType>;
+          _transitObjects     = results[2] as List<TransitVehicle>;
+          _vehicleTypes         = _vehicleTypeObjects.map((e) => e.name).toList();
+          _fuelTypes            = _fuelTypeObjects.map((e) => e.name).toList();
+          _publicTransportTypes = _transitObjects.map((e) => e.name).toList();
         });
       }
+    } catch (e) {
+      debugPrint('Error loading dropdown data: \$e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
   
@@ -471,101 +417,65 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
     }
     
     try {
-      // Show loading indicator
-      setState(() {
-        _isLoading = true;
-        _isSaving = true;
-      });
-      
-      // Parse distance
-      final distance = double.tryParse(_distanceController.text) ?? 0;
-      
-      // Calculate emissions using the EmissionService
-      double emissions;
+      setState(() { _isLoading = true; _isSaving = true; });
+
+      final distance   = double.tryParse(_distanceController.text) ?? 0;
+      final entryDate  = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final imagePath  = (_selectedImage != null && _selectedImage != widget.image)
+          ? _selectedImage!.path
+          : null;
+
+      // Delete old entry, then create new (API tidak support PUT transport entries)
+      await _carbonService.deleteEntry(int.parse(widget.documentId));
+
       if (widget.transportationMode == 'Public Transport') {
-        emissions = await _emissionService.calculatePublicTransportEmissions(
-          distance: distance,
-          vehicleType: _selectedVehicleType!
+        final transit = _transitObjects.firstWhere(
+          (t) => t.name == _selectedVehicleType,
+          orElse: () => _transitObjects.first,
+        );
+        await _carbonService.createPublicTransitEntry(
+          transitVehicleId: transit.id,
+          distanceKm: distance,
+          entryDate: entryDate,
+          imagePath: imagePath,
         );
       } else {
-        // For private vehicle
-        emissions = await _emissionService.calculateFuelEmissions(
-          distance: distance,
-          fuelType: _selectedFuelType!,
-          vehicleType: _selectedVehicleType!,
-          customEfficiency: _useCustomEfficiency && _efficiencyController.text.isNotEmpty
-              ? double.tryParse(_efficiencyController.text)
-              : null,
+        final vehicle = _vehicleTypeObjects.firstWhere(
+          (v) => v.name == _selectedVehicleType,
+          orElse: () => _vehicleTypeObjects.first,
+        );
+        final fuel = _fuelTypeObjects.firstWhere(
+          (f) => f.name == _selectedFuelType,
+          orElse: () => _fuelTypeObjects.first,
+        );
+        final customEff = _useCustomEfficiency && _efficiencyController.text.isNotEmpty
+            ? double.tryParse(_efficiencyController.text)
+            : null;
+        await _carbonService.createPrivateVehicleEntry(
+          vehicleTypeId: vehicle.id,
+          fuelTypeId: fuel.id,
+          distanceKm: distance,
+          customEfficiency: customEff,
+          entryDate: entryDate,
+          imagePath: imagePath,
         );
       }
-      
-      // Get current user
-      await _authService.loadCurrentUser();
-      final currentUser = _authService.currentUser;
-      if (currentUser == null) {
-        throw Exception('User not logged in');
-      }
-      
-      // Prepare metadata
-      final metadataMap = <String, dynamic>{
-        'transportationMode': widget.transportationMode,
-      };
-      
-      // Add additional metadata for private vehicle
-      if (widget.transportationMode == 'Private Vehicle') {
-        metadataMap['fuelType'] = _selectedFuelType;
-        metadataMap['useCustomEfficiency'] = _useCustomEfficiency;
-        if (_useCustomEfficiency && _efficiencyController.text.isNotEmpty) {
-          metadataMap['customEfficiency'] = double.tryParse(_efficiencyController.text);
-        }
-      }
-      
-      // Update entry via API
-      final consumptionService = ConsumptionService();
-      final entryDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      
-      await consumptionService.updateEntry(
-        int.parse(widget.documentId),
-        quantity: distance,
-        entryDate: entryDate,
-        metadata: metadataMap,
-        imagePath: (_selectedImage != null && _selectedImage != widget.image) 
-          ? _selectedImage!.path 
-          : null,
-      );
-      
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Entry updated successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      // Return to previous screen
-      if (mounted) {
-        Navigator.pop(context, true); // Pass true to indicate successful update
-      }
-    } catch (e) {
-      print('Error updating entry: $e');
-      
-      // Show error message
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update entry: $e'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Entry updated successfully'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      debugPrint('Error updating entry: \$e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update entry: \$e'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      // Hide loading indicator
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isSaving = false;
-        });
-      }
+      if (mounted) setState(() { _isLoading = false; _isSaving = false; });
     }
   }
   

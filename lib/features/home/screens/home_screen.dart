@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../utils/constants.dart';
 import '../../auth/services/auth_service_adapter.dart';
 import '../../profile/services/user_service_adapter.dart';
-import '../../calculator/services/consumption_service.dart';
+import '../../calculator/services/carbon_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -94,8 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final String endDate = '${_selectedMonth.year}-12-31';
         
         // Get entries from API for the selected year
-        final consumptionService = ConsumptionService();
-        final entries = await consumptionService.getEntries(
+        final carbonService = CarbonService();
+        final entries = await carbonService.getEntries(
           startDate: startDate,
           endDate: endDate,
         );
@@ -103,21 +103,20 @@ class _HomeScreenState extends State<HomeScreen> {
         // Calculate emissions for each month
         Map<int, Map<String, double>> monthlyData = {};
         for (int i = 1; i <= 12; i++) {
-          monthlyData[i] = {'food': 0, 'fuel': 0};
+          monthlyData[i] = {'food': 0, 'transport': 0};
         }
         
         for (var entry in entries) {
-          final category = (entry.categoryName ?? '').toLowerCase();
-          final emissions = entry.emissions?.toDouble() ?? 0.0;
+          final emissions = entry.emissions;
           
           // Get month from entry date
-          DateTime date = DateTime.tryParse(entry.entryDate ?? '') ?? DateTime.now();
+          DateTime date = DateTime.tryParse(entry.entryDate) ?? DateTime.now();
           int month = date.month;
           
-          if (category.contains('food') || category.contains('packaging')) {
+          if (entry.isFood) {
             monthlyData[month]!['food'] = (monthlyData[month]!['food'] ?? 0) + emissions;
-          } else if (category.contains('fuel') || category.contains('transport')) {
-            monthlyData[month]!['fuel'] = (monthlyData[month]!['fuel'] ?? 0) + emissions;
+          } else if (entry.isTransport) {
+            monthlyData[month]!['transport'] = (monthlyData[month]!['transport'] ?? 0) + emissions;
           }
         }
         
@@ -132,19 +131,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ];
         
         for (int i = 1; i <= 12; i++) {
-          final food = monthlyData[i]?['food'] ?? 0;
-          final fuel = monthlyData[i]?['fuel'] ?? 0;
-          final total = food + fuel;
+          final food      = monthlyData[i]?['food']      ?? 0;
+          final transport = monthlyData[i]?['transport'] ?? 0;
+          final total     = food + transport;
           
           updatedEmissions.add(MonthlyEmission(
             month: monthNames[i-1], 
             value: total,
             foodValue: food,
-            fuelValue: fuel
+            fuelValue: transport
           ));
           
           yearlyTotalFood += food;
-          yearlyTotalFuel += fuel;
+          yearlyTotalFuel += transport;
         }
         
         // Calculate yearly total and percentages
@@ -260,31 +259,28 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         
         // Get entries from API for the selected month
-        final consumptionService = ConsumptionService();
-        final entries = await consumptionService.getEntries(
+        final carbonService = CarbonService();
+        final entries = await carbonService.getEntries(
           startDate: startDate,
           endDate: endDate,
         );
         
         // Calculate emissions for each category
         double totalFoodEmissions = 0;
-        double totalFuelEmissions = 0;
+        double totalTransportEmissions = 0;
         
         for (var entry in entries) {
-          final category = (entry.categoryName ?? '').toLowerCase();
-          final emissions = entry.emissions?.toDouble() ?? 0.0;
-          
-          if (category.contains('food') || category.contains('packaging')) {
-            totalFoodEmissions += emissions;
-          } else if (category.contains('fuel') || category.contains('transport')) {
-            totalFuelEmissions += emissions;
+          if (entry.isFood) {
+            totalFoodEmissions += entry.emissions;
+          } else if (entry.isTransport) {
+            totalTransportEmissions += entry.emissions;
           }
         }
         
         // Calculate total and percentages
-        final totalEmissions = totalFoodEmissions + totalFuelEmissions;
-        final foodPercentage = totalEmissions > 0 ? (totalFoodEmissions / totalEmissions * 100).round() : 0;
-        final fuelPercentage = totalEmissions > 0 ? (totalFuelEmissions / totalEmissions * 100).round() : 0;
+        final totalEmissions  = totalFoodEmissions + totalTransportEmissions;
+        final foodPercentage  = totalEmissions > 0 ? (totalFoodEmissions / totalEmissions * 100).round() : 0;
+        final fuelPercentage  = totalEmissions > 0 ? (totalTransportEmissions / totalEmissions * 100).round() : 0;
         
         // Update state with new values
         if (mounted) {
@@ -300,9 +296,9 @@ class _HomeScreenState extends State<HomeScreen> {
             );
             
             _categories[1] = CarbonCategory(
-              name: 'Fuel Consumption',
+              name: 'Transport Consumption',
               percentage: fuelPercentage,
-              value: totalFuelEmissions,
+              value: totalTransportEmissions,
               color: const Color(0xFFE6BC62),
             );
             
@@ -310,8 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
         
-        print('Loaded monthly emissions for ${DateFormat('MMMM yyyy').format(_selectedMonth)}');
-        print('Food: $totalFoodEmissions, Fuel: $totalFuelEmissions, Total: $totalEmissions');
+        debugPrint('Loaded monthly emissions for ${DateFormat('MMMM yyyy').format(_selectedMonth)}: Food=$totalFoodEmissions, Transport=$totalTransportEmissions, Total=$totalEmissions');
       }
     } catch (e) {
       print('Error loading monthly emissions: $e');
@@ -1228,7 +1223,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: () {
         if (category.name.contains('Food')) {
           Navigator.pushNamed(context, '/food_packaging_details');
-        } else if (category.name.contains('Fuel')) {
+        } else if (category.name.contains('Transport') || category.name.contains('Fuel')) {
           Navigator.pushNamed(context, '/fuel_consumption_details');
         }
       },
@@ -1238,8 +1233,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Category icon
             Image.asset(
-              category.name.contains('Food') 
-                  ? 'assets/images/foodandpackaging.png' 
+              category.name.contains('Food')
+                  ? 'assets/images/foodandpackaging.png'
                   : 'assets/images/fuelconsumption.png',
               width: 40,
               height: 40,

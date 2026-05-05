@@ -4,10 +4,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/constants.dart';
+import '../../../core/models/domain_models.dart';
 import '../../auth/services/auth_service_adapter.dart';
-import '../../profile/services/user_service_adapter.dart';
-import '../services/emission_service.dart';
-import '../services/consumption_service.dart';
+import '../services/carbon_service.dart';
 
 class EditFoodEntryScreen extends StatefulWidget {
   final String itemType;
@@ -34,10 +33,10 @@ class EditFoodEntryScreen extends StatefulWidget {
 class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
   // Services
   final AuthServiceAdapter _authService = AuthServiceAdapter();
-  final UserServiceAdapter _userService = UserServiceAdapter();
-  final EmissionService _emissionService = EmissionService();
-  
+  final CarbonService _carbonService = CarbonService();
+
   // Item types loaded from API
+  List<FoodItem> _foodItems = [];
   List<String> _foodItemTypes = [];
   bool _isLoadingItems = true;
   
@@ -82,11 +81,12 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
   
   Future<void> _loadFoodItems() async {
     try {
-      final items = await _emissionService.getFoodItemNames();
+      final items = await _carbonService.getFoodItems();
       if (mounted) {
         setState(() {
-          _foodItemTypes = items;
-          // Ensure current item type is in the list
+          _foodItems = items;
+          _foodItemTypes = items.map((e) => e.name).toList();
+          // Ensure current item is in list
           if (_selectedItemType != null && !_foodItemTypes.contains(_selectedItemType)) {
             _foodItemTypes.insert(0, _selectedItemType!);
           }
@@ -94,13 +94,10 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
         });
       }
     } catch (e) {
-      print('Error loading food items: $e');
+      debugPrint('Error loading food items: \$e');
       if (mounted) {
         setState(() {
-          // Fallback: at least include the current item
-          if (_selectedItemType != null) {
-            _foodItemTypes = [_selectedItemType!];
-          }
+          if (_selectedItemType != null) _foodItemTypes = [_selectedItemType!];
           _isLoadingItems = false;
         });
       }
@@ -272,87 +269,55 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
   
-  // Update entry
+  // Update entry: delete old + create new (API doesn't support PUT food entries)
   Future<void> _updateEntry() async {
-    // Validate inputs
     if (_selectedItemType == null || _quantityController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please fill in all required fields'), backgroundColor: Colors.red),
       );
       return;
     }
-    
+
     try {
-      // Show loading indicator
-      setState(() {
-        _isLoading = true;
-        _isSaving = true;
-      });
-      
-      // Parse quantity
-      final quantity = double.tryParse(_quantityController.text) ?? 0;
-      
-      // Calculate emissions using the Climatiq API
-      final emissions = await _emissionService.calculateFoodEmissions(
-        _selectedItemType!,
-        quantity
-      );
-      
-      // Get current user
-      await _authService.loadCurrentUser();
-      final currentUser = _authService.currentUser;
-      if (currentUser == null) {
-        throw Exception('User not logged in');
-      }
-      
-      // Update entry via API
-      final consumptionService = ConsumptionService();
+      setState(() { _isLoading = true; _isSaving = true; });
+
+      final quantity  = double.tryParse(_quantityController.text) ?? 0;
       final entryDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      
-      await consumptionService.updateEntry(
-        int.parse(widget.documentId),
-        quantity: quantity,
-        entryDate: entryDate,
-        imagePath: (_selectedImage != null && _selectedImage != widget.image) 
-          ? _selectedImage!.path 
-          : null,
+      final imagePath = (_selectedImage != null && _selectedImage != widget.image)
+          ? _selectedImage!.path
+          : null;
+
+      // Resolve food item id
+      final foodItem = _foodItems.firstWhere(
+        (f) => f.name == _selectedItemType,
+        orElse: () => _foodItems.isNotEmpty ? _foodItems.first : FoodItem(
+          id: 0, name: _selectedItemType!, calculationMethod: 'fixed'),
       );
-      
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Entry updated successfully'),
-          backgroundColor: Colors.green,
-        ),
+
+      // Delete old, create new
+      await _carbonService.deleteEntry(int.parse(widget.documentId));
+      await _carbonService.createFoodEntry(
+        foodItemId: foodItem.id,
+        quantity:   quantity,
+        entryDate:  entryDate,
+        imagePath:  imagePath,
       );
-      
-      // Return to previous screen
-      if (mounted) {
-        Navigator.pop(context, true); // Pass true to indicate successful update
-      }
-    } catch (e) {
-      print('Error updating entry: $e');
-      
-      // Show error message
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update entry: $e'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Entry updated successfully'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      debugPrint('Error updating entry: \$e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update entry: \$e'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      // Hide loading indicator
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isSaving = false;
-        });
-      }
+      if (mounted) setState(() { _isLoading = false; _isSaving = false; });
     }
   }
   

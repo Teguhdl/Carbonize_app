@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 
-import '../services/consumption_service.dart';
+import '../services/carbon_service.dart';
 import '../widgets/donut_chart_painter.dart';
 import '../../auth/services/auth_service_adapter.dart';
 
@@ -76,29 +76,27 @@ class _ProgressChartDialogState extends State<_ProgressChartDialog> {
       await widget.authService.loadCurrentUser();
       final currentUser = widget.authService.currentUser;
       if (currentUser != null) {
-        final consumptionService = ConsumptionService();
+        final carbonService = CarbonService();
         final dateStr = DateFormat('yyyy-MM-dd').format(_dialogDate);
-        final apiEntries = await consumptionService.getEntries(
+        final apiEntries = await carbonService.getEntries(
           startDate: dateStr,
           endDate: dateStr,
         );
 
         double totalFoodEmissions = 0;
-        double totalFuelEmissions = 0;
+        double totalTransportEmissions = 0;
         for (var entry in apiEntries) {
-          final emissions = entry.emissions;
-          final category = entry.categoryName;
-          if (category == 'Food & Packaging Consumption') {
-            totalFoodEmissions += emissions;
-          } else if (category == 'Fuel Consumption') {
-            totalFuelEmissions += emissions;
+          if (entry.isFood) {
+            totalFoodEmissions += entry.emissions;
+          } else if (entry.isTransport) {
+            totalTransportEmissions += entry.emissions;
           }
         }
 
-        double totalEmissions = totalFoodEmissions + totalFuelEmissions;
-        double progressPercentage = widget.dailyLimit > 0
-            ? (totalEmissions / widget.dailyLimit * 100).clamp(0, 100)
-            : 0;
+        final totalEmissions = totalFoodEmissions + totalTransportEmissions;
+        final progressPercentage = widget.dailyLimit > 0
+            ? (totalEmissions / widget.dailyLimit * 100).clamp(0.0, 100.0)
+            : 0.0;
 
         if (mounted) {
           setState(() {
@@ -109,7 +107,7 @@ class _ProgressChartDialogState extends State<_ProgressChartDialog> {
         }
       }
     } catch (e) {
-      print('Error loading dialog date data: $e');
+      debugPrint('Error loading dialog date data: $e');
     }
   }
 

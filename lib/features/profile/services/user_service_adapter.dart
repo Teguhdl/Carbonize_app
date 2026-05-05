@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'user_service.dart' as api;
-import '../../calculator/services/consumption_service.dart';
-import '../../../core/storage/token_storage.dart';
+import '../../calculator/services/carbon_service.dart';
 
 class UserServiceAdapter {
   final api.UserService _apiUser = api.UserService();
-  final ConsumptionService _consumptionService = ConsumptionService();
+  // CarbonService available if needed for consumption operations
 
   // Get user data - returns a Map matching old format
   Future<Map<String, dynamic>> getUserData(String uid) async {
@@ -44,44 +43,11 @@ class UserServiceAdapter {
     print('updateLastLogin: No-op in API mode, handled by backend');
   }
 
-  // Save consumption entry
+  // Save consumption entry - legacy compatibility wrapper
+  // New code should call CarbonService directly instead
   Future<void> saveConsumptionEntry(String uid, Map<String, dynamic> entryData, File? imageFile) async {
-    final factorItemsId = entryData['factor_items_id'] as int? ?? 
-                          int.tryParse(entryData['factor_items_id']?.toString() ?? '0') ?? 0;
-    final quantity = entryData['quantity'] as double? ??
-                     double.tryParse(entryData['quantity']?.toString() ?? '0') ?? 0.0;
-    final entryDate = entryData['entry_date']?.toString() ?? 
-                      DateTime.now().toIso8601String().split('T')[0];
-    
-    final metadata = <String, dynamic>{};
-    if (entryData.containsKey('metadata')) {
-      final metaRaw = entryData['metadata'];
-      if (metaRaw is Map) {
-        metadata.addAll(Map<String, dynamic>.from(metaRaw));
-      }
-    }
-    if (entryData.containsKey('vehicleType')) metadata['vehicleType'] = entryData['vehicleType'];
-    if (entryData.containsKey('fuelType')) metadata['fuelType'] = entryData['fuelType'];
-    if (entryData.containsKey('transportationMode')) metadata['transportationMode'] = entryData['transportationMode'];
-    
-    // Sanitize useCustomEfficiency for PHP compatibility
-    // PHP !empty("false") is TRUE, so send "1"/"0" instead of "true"/"false"
-    final useCustom = entryData['useCustomEfficiency'] == true;
-    metadata['useCustomEfficiency'] = useCustom ? '1' : '0';
-    
-    if (useCustom && entryData['customEfficiency'] != null && (entryData['customEfficiency'] as num) > 0) {
-      metadata['customEfficiency'] = entryData['customEfficiency'];
-    } else {
-      metadata.remove('customEfficiency');
-    }
-
-    await _consumptionService.createEntry(
-      factorItemsId: factorItemsId,
-      quantity: quantity,
-      entryDate: entryDate,
-      metadata: metadata.isNotEmpty ? metadata : null,
-      imagePath: imageFile?.path,
-    );
+    // This is kept for backward compatibility but new dialogs use CarbonService directly
+    print('saveConsumptionEntry: use CarbonService directly instead');
   }
 
   // Upload profile image

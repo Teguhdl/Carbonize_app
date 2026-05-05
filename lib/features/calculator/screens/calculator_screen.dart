@@ -4,8 +4,7 @@ import '../../../utils/constants.dart';
 import 'package:intl/intl.dart';
 import '../../auth/services/auth_service_adapter.dart';
 import '../../profile/services/user_service_adapter.dart';
-import '../services/emission_service.dart';
-import '../services/consumption_service.dart';
+import '../services/carbon_service.dart';
 
 import '../models/consumption_entry.dart';
 import '../widgets/donut_chart_painter.dart';
@@ -28,7 +27,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   // Services
   final AuthServiceAdapter _authService = AuthServiceAdapter();
   final UserServiceAdapter _userService = UserServiceAdapter();
-  final EmissionService _emissionService = EmissionService();
+  final CarbonService _carbonService = CarbonService();
 
   // Emissions state
   String _currentDate = '';
@@ -46,7 +45,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   // Consumption entries
   List<ConsumptionEntry> _consumptionEntries = [];
 
-
+  // Category filter: null = all, 'food' = food only, 'transport' = transport only
+  String? _activeFilter;
 
   @override
   void initState() {
@@ -92,26 +92,15 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       if (currentUser != null) {
         setState(() => _isLoading = true);
 
-        final consumptionService = ConsumptionService();
         final dateStr = DateFormat('yyyy-MM-dd').format(_viewDate);
-        final apiEntries = await consumptionService.getEntries(
+        final apiEntries = await _carbonService.getEntries(
           startDate: dateStr,
           endDate: dateStr,
         );
 
-        final entries = apiEntries.map((apiEntry) {
-          DateTime date = DateTime.tryParse(apiEntry.entryDate) ?? DateTime.now();
-          return ConsumptionEntry(
-            category: apiEntry.categoryName,
-            itemType: apiEntry.factorItemName,
-            quantity: apiEntry.quantity,
-            date: date,
-            emissions: apiEntry.emissions,
-            imageUrl: apiEntry.image,
-            metadata: apiEntry.metadata,
-            documentId: apiEntry.id.toString(),
-          );
-        }).toList();
+        final entries = apiEntries
+            .map((e) => ConsumptionEntry.fromApiModel(e))
+            .toList();
 
         if (mounted) {
           setState(() {
@@ -121,13 +110,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           _calculateEmissions();
         }
 
-        print('Loaded ${entries.length} consumption entries for ${_formatDate(_viewDate)}');
+        debugPrint('Loaded ${entries.length} entries for ${_formatDate(_viewDate)}');
       }
     } catch (e) {
-      print('Error loading consumption entries: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      debugPrint('Error loading consumption entries: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -138,10 +125,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     double totalFuelEmissions = 0;
 
     for (var entry in _consumptionEntries) {
-      final cat = entry.category.toLowerCase();
-      if (cat.contains('food') || cat.contains('packaging')) {
+      if (entry.isFood) {
         totalFoodEmissions += entry.emissions;
-      } else if (cat.contains('fuel') || cat.contains('transport')) {
+      } else if (entry.isTransport) {
         totalFuelEmissions += entry.emissions;
       }
     }
@@ -294,7 +280,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   void _showAddFoodEntryDialog() {
     showAddFoodEntryDialog(
       context: context,
-      emissionService: _emissionService,
+      carbonService: _carbonService,
       authService: _authService,
       userService: _userService,
       viewDate: _viewDate,
@@ -306,7 +292,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   void _showAddFuelEntryDialog() {
     showAddFuelEntryDialog(
       context: context,
-      emissionService: _emissionService,
+      carbonService: _carbonService,
       authService: _authService,
       userService: _userService,
       viewDate: _viewDate,
@@ -344,8 +330,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       setState(() => _isLoading = true);
 
       if (entry.documentId != null) {
-        final cat = entry.category.toLowerCase();
-        if (cat.contains('food') || cat.contains('packaging')) {
+        if (entry.isFood) {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
@@ -360,7 +345,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             ),
           );
           if (result == true) _loadConsumptionEntries();
-        } else if (cat.contains('fuel') || cat.contains('transport') || cat.contains('vehicle')) {
+        } else if (entry.isTransport) {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(
@@ -371,7 +356,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 image: entry.image,
                 imageUrl: entry.imageUrl,
                 documentId: entry.documentId!,
-                transportationMode: entry.metadata?['transportationMode'] ?? 'Private Vehicle',
+                transportationMode: entry.entryType == 'private_vehicle'
+                    ? 'Private Vehicle'
+                    : 'Public Transport',
               ),
             ),
           );
@@ -386,7 +373,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         );
       }
     } catch (e) {
-      print('Error navigating to edit screen: $e');
+      debugPrint('Error navigating to edit screen: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
@@ -702,20 +689,36 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     return Row(
       children: [
         Expanded(
-          child: _buildCategoryCard(
-            icon: Icons.restaurant,
-            label: 'Food & Packaging',
-            value: '${_foodPackagingEmissions.toStringAsFixed(2)} kg',
-            color: const Color(0xFF8B9D5B),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _activeFilter = _activeFilter == 'food' ? null : 'food';
+              });
+            },
+            child: _buildCategoryCard(
+              icon: Icons.restaurant,
+              label: 'Food & Packaging',
+              value: '${_foodPackagingEmissions.toStringAsFixed(2)} kg',
+              color: const Color(0xFF8B9D5B),
+              isActive: _activeFilter == 'food',
+            ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _buildCategoryCard(
-            icon: Icons.directions_car,
-            label: 'Fuel',
-            value: '${_fuelEmissions.toStringAsFixed(2)} kg',
-            color: const Color(0xFF7A8C4A),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _activeFilter = _activeFilter == 'transport' ? null : 'transport';
+              });
+            },
+            child: _buildCategoryCard(
+              icon: Icons.directions_car,
+              label: 'Fuel & Transport',
+              value: '${_fuelEmissions.toStringAsFixed(2)} kg',
+              color: const Color(0xFF7A8C4A),
+              isActive: _activeFilter == 'transport',
+            ),
           ),
         ),
       ],
@@ -727,16 +730,23 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     required String label,
     required String value,
     required Color color,
+    bool isActive = false,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color,
+        color: isActive ? color : color.withOpacity(0.75),
         borderRadius: BorderRadius.circular(12),
+        border: isActive
+            ? Border.all(color: Colors.white, width: 2)
+            : Border.all(color: Colors.transparent, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
+            color: isActive
+                ? Colors.black.withOpacity(0.25)
+                : Colors.black.withOpacity(0.1),
+            blurRadius: isActive ? 10 : 6,
             offset: const Offset(0, 3),
           ),
         ],
@@ -744,7 +754,24 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 24),
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 22),
+              const Spacer(),
+              if (isActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'filtered',
+                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
             label,
@@ -765,24 +792,62 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   Widget _buildEntriesList() {
+    // Apply active filter
+    final filtered = _activeFilter == null
+        ? _consumptionEntries
+        : _activeFilter == 'food'
+            ? _consumptionEntries.where((e) => e.isFood).toList()
+            : _consumptionEntries.where((e) => e.isTransport).toList();
+
+    final filterLabel = _activeFilter == 'food'
+        ? 'Food & Packaging'
+        : _activeFilter == 'transport'
+            ? 'Fuel & Transport'
+            : "Today's Entries";
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Today\'s Entries',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Text(
+                  filterLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (_activeFilter != null) ...[  
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => setState(() => _activeFilter = null),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close, color: Colors.white, size: 12),
+                          SizedBox(width: 3),
+                          Text('clear', style: TextStyle(color: Colors.white, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             Row(
               children: [
                 Text(
-                  '${_consumptionEntries.length} entries',
+                  '${filtered.length} entries',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: 14,
@@ -805,7 +870,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        if (_consumptionEntries.isEmpty)
+        if (filtered.isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 40.0),
@@ -814,7 +879,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                   Icon(Icons.eco, size: 48, color: Colors.white.withOpacity(0.5)),
                   const SizedBox(height: 12),
                   Text(
-                    'No entries for this date',
+                    _activeFilter != null
+                        ? 'No $filterLabel entries for this date'
+                        : 'No entries for this date',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 16,
@@ -833,7 +900,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             ),
           )
         else
-          ...(_consumptionEntries.map((entry) => ConsumptionEntryCard(
+          ...(filtered.map((entry) => ConsumptionEntryCard(
                 entry: entry,
                 onTap: () => _showEntryDetail(entry),
               ))),
