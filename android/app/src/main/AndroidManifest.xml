@@ -11,6 +11,12 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true">
+        
+        <!-- Fix Android 15 Emulator Crash (Signal 3) with Impeller -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+            
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -18,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final isLoggedIn = await TokenStorage.hasValidToken();
       if (mounted) {
         if (isLoggedIn) {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/main');
         } else {
           Navigator.pushReplacementNamed(context, '/login');
         }

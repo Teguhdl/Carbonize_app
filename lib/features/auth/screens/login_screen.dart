@@ -32,28 +32,28 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('Starting login process');
+      debugPrint('Starting login process');
       // Validate input fields
       if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
         throw Exception('Please enter email and password');
       }
 
-      print('Attempting to login with API');
+      debugPrint('Attempting to login with API');
       // Login with Laravel API
       await _authService.login(
         _emailController.text.trim(),
         _passwordController.text,
       );
       
-      print('Login successful');
+      debugPrint('Login successful');
 
       // Navigate to home screen
       if (mounted) {
-        print('Navigation to home screen');
-        Navigator.pushReplacementNamed(context, '/home');
+        debugPrint('Navigation to home screen');
+        Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (e) {
-      print('Login error: $e');
+      debugPrint('Login error: $e');
       if (mounted) {
         setState(() {
           String errorMsg = e.toString();
@@ -109,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(AppDimensions.inputCornerRadius),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -153,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(AppDimensions.inputCornerRadius),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: BoxDecoration(
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           ),

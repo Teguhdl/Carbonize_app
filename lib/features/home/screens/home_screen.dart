@@ -13,7 +13,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final AuthServiceAdapter _authService = AuthServiceAdapter();
   final UserServiceAdapter _userService = UserServiceAdapter();
   String _username = '';
@@ -174,11 +177,18 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
         
-        print('Loaded yearly emissions for ${_selectedMonth.year}');
+        debugPrint('Loaded yearly emissions for ${_selectedMonth.year}');
       }
     } catch (e) {
-      print('Error loading yearly emissions: $e');
+      debugPrint('Error loading yearly emissions: $e');
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memuat data tahunan. Periksa koneksi internet Anda.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
         setState(() {
           _isLoading = false;
         });
@@ -192,30 +202,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
     _loadMonthlyEmissions();
     _loadYearlyEmissions();
-    
-    // Add listener to page controller to update the view state
-    _pageController.addListener(_onPageChanged);
   }
   
   @override
   void dispose() {
-    _pageController.removeListener(_onPageChanged);
     _pageController.dispose();
     super.dispose();
-  }
-  
-  void _onPageChanged() {
-    if (_pageController.page == 0 && !_isMonthlyView) {
-      setState(() {
-        _isMonthlyView = true;
-      });
-    } else if (_pageController.page == 1 && _isMonthlyView) {
-      setState(() {
-        _isMonthlyView = false;
-      });
-      // Load yearly data when switching to yearly view
-      _loadYearlyEmissions();
-    }
   }
 
   Future<void> _loadUserData() async {
@@ -223,13 +215,22 @@ class _HomeScreenState extends State<HomeScreen> {
       await _authService.loadCurrentUser();
       final currentUser = _authService.currentUser;
       if (currentUser != null) {
-        Map<String, dynamic> data = await _userService.getUserData(currentUser.uid);
+        // Gunakan nama lokal agar tidak hilang saat offline
         setState(() {
-          _username = data['username'] ?? data['name'] ?? 'User';
+          _username = currentUser.displayName ?? 'User';
         });
+
+        try {
+          Map<String, dynamic> data = await _userService.getUserData(currentUser.uid);
+          setState(() {
+            _username = data['username'] ?? data['name'] ?? currentUser.displayName ?? 'User';
+          });
+        } catch (apiError) {
+          debugPrint('Offline: Tetap memakai data lokal.');
+        }
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
     } finally {
       // Loading state will be managed by _loadMonthlyEmissions
       if (mounted && _isLoading && _totalMonthlyEmissions > 0) {
@@ -309,7 +310,7 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPrint('Loaded monthly emissions for ${DateFormat('MMMM yyyy').format(_selectedMonth)}: Food=$totalFoodEmissions, Transport=$totalTransportEmissions, Total=$totalEmissions');
       }
     } catch (e) {
-      print('Error loading monthly emissions: $e');
+      debugPrint('Error loading monthly emissions: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -515,136 +516,24 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     ).then((selectedDate) {
       if (selectedDate != null) {
+        bool yearChanged = _selectedMonth.year != selectedDate.year;
         setState(() {
           _selectedMonth = selectedDate;
         });
         _loadMonthlyEmissions();
-      }
-    });
-  }
-
-  // Add a method to select year (like month selector but only for years)
-  Future<void> _selectYear() async {
-    // Prepare year options (current year and 5 years back)
-    final List<int> yearOptions = [];
-    final int currentYear = DateTime.now().year;
-    for (int i = 0; i <= 5; i++) {
-      yearOptions.add(currentYear - i);
-    }
-    
-    // Show dialog with year selector
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: const Color(0xFFE4FFAC),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Select Year',
-                  style: TextStyle(
-                    color: Color(0xFF5D6C24),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Year options as a grid
-                Container(
-                  constraints: BoxConstraints(
-                    maxHeight: 300,
-                  ),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 1.5,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                    ),
-                    itemCount: yearOptions.length,
-                    itemBuilder: (context, index) {
-                      final year = yearOptions[index];
-                      final isSelected = year == _selectedMonth.year;
-                      
-                      return InkWell(
-                        onTap: () {
-                          Navigator.pop(context, year);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF5D6C24) : const Color(0xFFA4B465),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              year.toString(),
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Cancel button
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Color(0xFF5D6C24),
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ).then((selectedYear) {
-      if (selectedYear != null) {
-        setState(() {
-          // Keep the same month but change the year
-          _selectedMonth = DateTime(selectedYear, _selectedMonth.month, 1);
-        });
-        
-        // Load data for the new year
-        if (_isMonthlyView) {
-          _loadMonthlyEmissions();
-        } else {
+        if (yearChanged) {
           _loadYearlyEmissions();
         }
       }
     });
   }
 
-  Future<void> _logout() async {
-    await _authService.signOut();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
-  }
+
+
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -699,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -717,11 +606,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 // Date selector - aligned to the left and now clickable to select month
                 GestureDetector(
-                  onTap: _isMonthlyView ? _selectMonth : _selectYear,
+                  onTap: _selectMonth,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -835,6 +724,33 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 
+                const SizedBox(height: 10),
+                
+                // Swipe indicator (dots)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _isMonthlyView ? Colors.white : Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: !_isMonthlyView ? Colors.white : Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ],
+                ),
+                
                 const SizedBox(height: 15),
                 
                 // Details section
@@ -857,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Add shadow to details table
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -883,75 +799,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-        
-        // Bottom navigation bar - keeping position unchanged
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 20,
-          child: Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.70,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0BB78),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // PROFILE ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/profile');
-                    },
-                    child: Image.asset(
-                      'assets/icons/profileunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                  
-                  // HOME BUTTON (BROWN CONTAINER)
-                  Container(
-                    width: 74,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF55481D),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        'assets/icons/homeselect_icon.png',
-                        width: 70,
-                        height: 70,
-                      ),
-                    ),
-                  ),
-                  
-                  // CALCULATOR ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/calculator');
-                    },
-                    child: Image.asset(
-                      'assets/icons/calculatorunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
@@ -1011,7 +858,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     height: 1,
                     margin: const EdgeInsets.only(left: 5),
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -1064,7 +911,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               right: 0,
                               child: Container(
                                 height: 1,
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                               ),
                             );
                           }),
@@ -1083,7 +930,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             final x = (index * (barWidth + spacing)) + spacing;
                             
                             // Value text above the bar
-                            if (emission.value > 0)
+                            if (emission.value > 0) {
                               return Stack(
                                 children: [
                                   // Value text above bar
@@ -1142,6 +989,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ],
                               );
+                            }
                             
                             // Empty bar (no value)
                             return const SizedBox.shrink();
@@ -1175,7 +1023,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     : '';
                                 
                                 // Buat width konstan untuk menghindari overflow
-                                return Container(
+                                return SizedBox(
                                   width: (totalWidth - spacing) / 13, // Ensure fixed width that fits
                                   child: Text(
                                     monthAbbr,
@@ -1301,9 +1149,30 @@ class DonutChartPainter extends CustomPainter {
     final radius = size.width / 2;
     final innerRadius = radius * 0.6; // 60% of outer radius for donut hole
     
+    // Check if there are no emissions
+    bool isEmpty = categories.isEmpty || categories.every((c) => c.percentage == 0);
+    
+    if (isEmpty) {
+      final paint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.2) // Grayish/transparent empty state
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = radius - innerRadius;
+        
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: (radius + innerRadius) / 2),
+        0,
+        2 * math.pi, // Full circle
+        false,
+        paint,
+      );
+      return;
+    }
+    
     double startAngle = -math.pi / 2; // Start from top (12 o'clock position)
     
     for (var category in categories) {
+      if (category.percentage == 0) continue;
+      
       final sweepAngle = 2 * math.pi * category.percentage / 100;
       
       final paint = Paint()

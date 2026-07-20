@@ -121,7 +121,7 @@ class _AddFuelEntryDialogState extends State<_AddFuelEntryDialog> {
             primary: Color(0xFF5D6C24), onPrimary: Colors.white,
             surface: Color(0xFFE4FFAC), onSurface: Color(0xFF5D6C24),
           ),
-          dialogBackgroundColor: const Color(0xFFE4FFAC),
+          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFFE4FFAC)),
         ),
         child: child!,
       ),
@@ -164,7 +164,6 @@ class _AddFuelEntryDialogState extends State<_AddFuelEntryDialog> {
     if (_mode == 'Private Vehicle' && _selectedVehicle == null) { _snack('Please select vehicle type'); return; }
     if (_mode == 'Private Vehicle' && _selectedFuel == null) { _snack('Please select fuel type'); return; }
     if (_mode == 'Public Transport' && _selectedTransit == null) { _snack('Please select public vehicle'); return; }
-    if (_selectedImage == null) { _snack('Documentation image is required'); return; }
 
     setState(() => _isSubmitting = true);
     try {
@@ -181,14 +180,14 @@ class _AddFuelEntryDialogState extends State<_AddFuelEntryDialog> {
           distanceKm:       distance,
           customEfficiency: customEff,
           entryDate:        dateStr,
-          imagePath:        _selectedImage!.path,
+          imagePath:        _selectedImage?.path,
         );
       } else {
         await widget.carbonService.createPublicTransitEntry(
           transitVehicleId: _selectedTransit!.id,
           distanceKm:       distance,
           entryDate:        dateStr,
-          imagePath:        _selectedImage!.path,
+          imagePath:        _selectedImage?.path,
         );
       }
 
@@ -413,7 +412,7 @@ class _AddFuelEntryDialogState extends State<_AddFuelEntryDialog> {
     height: 50,
     decoration: BoxDecoration(
       color: const Color(0xFFA4B465), borderRadius: BorderRadius.circular(8),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 4))],
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 4))],
     ),
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: TextField(
@@ -431,7 +430,7 @@ class _AddFuelEntryDialogState extends State<_AddFuelEntryDialog> {
     height: 50,
     decoration: BoxDecoration(
       color: const Color(0xFFA4B465), borderRadius: BorderRadius.circular(8),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 4))],
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 4))],
     ),
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

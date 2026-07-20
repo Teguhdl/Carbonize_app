@@ -56,79 +56,6 @@ class _FoodPackagingDetailsScreenState extends State<FoodPackagingDetailsScreen>
                 child: _buildDetailsContent(context),
               ),
               
-              // Bottom navigation bar
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 20,
-                child: Center(
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.70,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0BB78),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // PROFILE ICON
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacementNamed(context, '/profile');
-                          },
-                          child: Image.asset(
-                            'assets/icons/profileunselect_icon.png',
-                            width: 70,
-                            height: 70,
-                          ),
-                        ),
-                        
-                        // HOME ICON (SELECTED)
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacementNamed(context, '/home');
-                          },
-                          child: Container(
-                            width: 74,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF55481D),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Image.asset(
-                                'assets/icons/homeselect_icon.png',
-                                width: 70,
-                                height: 70,
-                              ),
-                            ),
-                          ),
-                        ),
-                        
-                        // CALCULATOR ICON
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacementNamed(context, '/calculator');
-                          },
-                          child: Image.asset(
-                            'assets/icons/calculatorunselect_icon.png',
-                            width: 70,
-                            height: 70,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -149,7 +76,7 @@ class _FoodPackagingDetailsScreenState extends State<FoodPackagingDetailsScreen>
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
+                  color: Colors.black.withValues(alpha: 0.15),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),

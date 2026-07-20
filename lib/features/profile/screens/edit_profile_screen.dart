@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../utils/constants.dart';
 import '../../auth/services/auth_service_adapter.dart';
 import '../services/user_service_adapter.dart';
-import '../../../widgets/custom_button.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String username;
@@ -120,7 +119,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -157,7 +156,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _errorMessage = 'Error updating profile: ${e.toString()}';
       });
-      print('Error updating profile: $e');
+      debugPrint('Error updating profile: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -198,7 +197,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
               content: SingleChildScrollView(
-                child: Container(
+                child: SizedBox(
                   width: double.maxFinite,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -217,7 +216,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Container(
                         height: 50,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF626F47).withOpacity(0.5),
+                          color: const Color(0xFF626F47).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -272,7 +271,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Container(
                         height: 50,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF626F47).withOpacity(0.5),
+                          color: const Color(0xFF626F47).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -327,7 +326,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Container(
                         height: 50,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF626F47).withOpacity(0.5),
+                          color: const Color(0xFF626F47).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -446,18 +445,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               newPasswordController.text,
                             );
                             
-                            // Close dialog and show success message
+                            if (!context.mounted) return;
+                            // Dialog has its own context — just pop and show snackbar
                             Navigator.of(context).pop();
                             
-                            if (mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Password changed successfully'),
-                                  backgroundColor: Colors.green,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Password changed successfully'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
                           } catch (e) {
                             setState(() {
                               errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -588,7 +586,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -632,7 +630,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -676,7 +674,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -721,7 +719,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -786,7 +784,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -851,7 +849,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withValues(alpha: 0.2),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -893,74 +891,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ],
         ),
         
-        // Bottom navigation bar
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 20,
-          child: Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.70,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0BB78),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // PROFILE ICON (SELECTED)
-                  Container(
-                    width: 74,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF55481D),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        'assets/icons/profileselect_icon.png',
-                        width: 70,
-                        height: 70,
-                      ),
-                    ),
-                  ),
-                  
-                  // HOME ICON (UNSELECTED)
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
-                    child: Image.asset(
-                      'assets/icons/homeunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                  
-                  // CALCULATOR ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/calculator');
-                    },
-                    child: Image.asset(
-                      'assets/icons/calculatorunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

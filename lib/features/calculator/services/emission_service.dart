@@ -1,11 +1,14 @@
 import 'consumption_service.dart';
 
 class EmissionService {
-  final ConsumptionService _apiService = ConsumptionService();
+  final ConsumptionService _apiService;
+  
+  // Dependency Injection: allows passing a mock service for testing
+  EmissionService({ConsumptionService? apiService}) 
+      : _apiService = apiService ?? ConsumptionService();
   
   // Cache for emission factor data
   Map<String, Map<String, dynamic>>? _foodFactorsCache;
-  Map<String, double>? _fixedValuesCache;
   Map<String, double>? _fuelFactorsCache;
   Map<String, double>? _vehicleEfficiencyCache;
   Map<String, double>? _publicTransportFactorsCache;
@@ -19,17 +22,33 @@ class EmissionService {
   Future<int> getFactorItemId(String categoryName, String itemName) async {
     // Build cache for this category if not yet cached
     if (!_factorItemIdCache.containsKey(categoryName)) {
-      final items = await _apiService.getFactorsByCategory(categoryName);
       _factorItemIdCache[categoryName] = {};
-      for (final item in items) {
-        _factorItemIdCache[categoryName]![item.name] = item.id;
-        
-        // For public transport items, also cache by clean name
-        // e.g., 'City Bus (Emission)' -> also cached as 'City Bus'
-        if (item.name.contains('(Emission)')) {
-          final cleanName = item.name.replaceAll('(Emission)', '').trim();
-          _factorItemIdCache[categoryName]![cleanName] = item.id;
-        }
+
+      switch (categoryName.toLowerCase()) {
+        case 'food':
+          final items = await _apiService.getFoodItems();
+          for (final item in items) {
+            _factorItemIdCache[categoryName]![item.name] = item.id;
+          }
+          break;
+        case 'fuel':
+          final items = await _apiService.getFuelTypes();
+          for (final item in items) {
+            _factorItemIdCache[categoryName]![item.name] = item.id;
+          }
+          break;
+        case 'vehicle':
+          final items = await _apiService.getVehicleTypes();
+          for (final item in items) {
+            _factorItemIdCache[categoryName]![item.name] = item.id;
+          }
+          break;
+        case 'public transport':
+          final items = await _apiService.getPublicVehicles();
+          for (final item in items) {
+            _factorItemIdCache[categoryName]![item.name] = item.id;
+          }
+          break;
       }
     }
     return _factorItemIdCache[categoryName]?[itemName] ?? 0;
@@ -39,37 +58,25 @@ class EmissionService {
   Future<Map<String, Map<String, dynamic>>> getFoodEmissionFactors() async {
     if (_foodFactorsCache != null) return _foodFactorsCache!;
     
-    final items = await _apiService.getFactorsByCategory('food');
+    final items = await _apiService.getFoodItems();
     _foodFactorsCache = {};
     for (final item in items) {
       _foodFactorsCache![item.name] = {
-        'value': double.tryParse(item.value ?? '0') ?? 0,
+        'value': item.emissionFactor ?? 0,
         'climatiq_id': item.climatiqId,
       };
     }
     return _foodFactorsCache!;
   }
 
-  // Get fixed emission values
-  Future<Map<String, double>> getFixedEmissionValues() async {
-    if (_fixedValuesCache != null) return _fixedValuesCache!;
-    
-    final items = await _apiService.getFactorsByCategory('fixed');
-    _fixedValuesCache = {};
-    for (final item in items) {
-      _fixedValuesCache![item.name] = double.tryParse(item.value ?? '0') ?? 0;
-    }
-    return _fixedValuesCache!;
-  }
-
   // Get fuel emission factors
   Future<Map<String, double>> getFuelEmissionFactors() async {
     if (_fuelFactorsCache != null) return _fuelFactorsCache!;
     
-    final items = await _apiService.getFactorsByCategory('fuel');
+    final items = await _apiService.getFuelTypes();
     _fuelFactorsCache = {};
     for (final item in items) {
-      _fuelFactorsCache![item.name] = double.tryParse(item.value ?? '0') ?? 0;
+      _fuelFactorsCache![item.name] = item.emissionFactor;
     }
     return _fuelFactorsCache!;
   }
@@ -78,44 +85,34 @@ class EmissionService {
   Future<Map<String, double>> getVehicleEfficiencyValues() async {
     if (_vehicleEfficiencyCache != null) return _vehicleEfficiencyCache!;
     
-    final items = await _apiService.getFactorsByCategory('vehicle');
+    final items = await _apiService.getVehicleTypes();
     _vehicleEfficiencyCache = {};
     for (final item in items) {
-      _vehicleEfficiencyCache![item.name] = double.tryParse(item.value ?? '0') ?? 0;
+      _vehicleEfficiencyCache![item.name] = item.defaultEfficiency;
     }
     return _vehicleEfficiencyCache!;
   }
 
   // Get public transport emission factors
-  // Backend has items like 'City Bus (Emission)' under 'Public Transport' category
   Future<Map<String, double>> getPublicTransportEmissionFactors() async {
     if (_publicTransportFactorsCache != null) return _publicTransportFactorsCache!;
     
-    final items = await _apiService.getFactorsByCategory('public transport');
+    final items = await _apiService.getPublicVehicles();
     _publicTransportFactorsCache = {};
     for (final item in items) {
-      if (item.name.contains('(Emission)')) {
-        // Extract vehicle name: 'City Bus (Emission)' -> 'City Bus'
-        final vehicleName = item.name.replaceAll('(Emission)', '').trim();
-        _publicTransportFactorsCache![vehicleName] = double.tryParse(item.value ?? '0') ?? 0;
-      }
+      _publicTransportFactorsCache![item.name] = item.emissionFactor;
     }
     return _publicTransportFactorsCache!;
   }
 
   // Get public transport average passengers
-  // Backend has items like 'City Bus (Passengers)' under 'Public Transport' category
   Future<Map<String, int>> getPublicTransportAveragePassengers() async {
     if (_publicTransportPassengersCache != null) return _publicTransportPassengersCache!;
     
-    final items = await _apiService.getFactorsByCategory('public transport');
+    final items = await _apiService.getPublicVehicles();
     _publicTransportPassengersCache = {};
     for (final item in items) {
-      if (item.name.contains('(Passengers)')) {
-        // Extract vehicle name: 'City Bus (Passengers)' -> 'City Bus'
-        final vehicleName = item.name.replaceAll('(Passengers)', '').trim();
-        _publicTransportPassengersCache![vehicleName] = int.tryParse(item.value ?? '0') ?? 0;
-      }
+      _publicTransportPassengersCache![item.name] = item.avgPassengers.toInt();
     }
     return _publicTransportPassengersCache!;
   }
@@ -198,7 +195,6 @@ class EmissionService {
   // Clear cache
   void clearCache() {
     _foodFactorsCache = null;
-    _fixedValuesCache = null;
     _fuelFactorsCache = null;
     _vehicleEfficiencyCache = null;
     _publicTransportFactorsCache = null;

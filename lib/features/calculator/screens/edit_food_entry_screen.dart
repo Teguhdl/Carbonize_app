@@ -5,7 +5,6 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/constants.dart';
 import '../../../core/models/domain_models.dart';
-import '../../auth/services/auth_service_adapter.dart';
 import '../services/carbon_service.dart';
 
 class EditFoodEntryScreen extends StatefulWidget {
@@ -17,14 +16,14 @@ class EditFoodEntryScreen extends StatefulWidget {
   final String documentId; // Entry ID from API
 
   const EditFoodEntryScreen({
-    Key? key,
+    super.key,
     required this.itemType,
     required this.quantity,
     required this.date,
     this.image,
     this.imageUrl,
     required this.documentId,
-  }) : super(key: key);
+  });
 
   @override
   State<EditFoodEntryScreen> createState() => _EditFoodEntryScreenState();
@@ -32,13 +31,11 @@ class EditFoodEntryScreen extends StatefulWidget {
 
 class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
   // Services
-  final AuthServiceAdapter _authService = AuthServiceAdapter();
   final CarbonService _carbonService = CarbonService();
 
   // Item types loaded from API
   List<FoodItem> _foodItems = [];
   List<String> _foodItemTypes = [];
-  bool _isLoadingItems = true;
   
   // Selected values
   String? _selectedItemType;
@@ -90,7 +87,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
           if (_selectedItemType != null && !_foodItemTypes.contains(_selectedItemType)) {
             _foodItemTypes.insert(0, _selectedItemType!);
           }
-          _isLoadingItems = false;
+          // Loading complete
         });
       }
     } catch (e) {
@@ -98,7 +95,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
       if (mounted) {
         setState(() {
           if (_selectedItemType != null) _foodItemTypes = [_selectedItemType!];
-          _isLoadingItems = false;
+          // Loading complete
         });
       }
     }
@@ -147,7 +144,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -175,7 +172,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
                         decoration: BoxDecoration(
                           border: !isLast ? Border(
                             bottom: BorderSide(
-                              color: Colors.white.withOpacity(0.2),
+                               color: Colors.white.withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ) : null,
@@ -223,14 +220,16 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
         });
       }
     } catch (e) {
-      print('Error picking image: $e');
+      debugPrint('Error picking image: $e');
       // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to pick image: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
   
@@ -250,7 +249,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
               surface: Color(0xFFE4FFAC),
               onSurface: Color(0xFF5D6C24),
             ),
-            dialogBackgroundColor: const Color(0xFFE4FFAC),
+            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFFE4FFAC)),
           ),
           child: child!,
         );
@@ -386,7 +385,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.25),
+                                    color: Colors.black.withValues(alpha: 0.25),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -461,7 +460,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.25),
+                                color: Colors.black.withValues(alpha: 0.25),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -511,7 +510,7 @@ class _EditFoodEntryScreenState extends State<EditFoodEntryScreen> {
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.25),
+                                  color: Colors.black.withValues(alpha: 0.25),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),

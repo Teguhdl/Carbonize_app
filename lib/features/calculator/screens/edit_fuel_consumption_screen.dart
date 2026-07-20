@@ -5,8 +5,6 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/constants.dart';
 import '../../../core/models/domain_models.dart';
-import '../../auth/services/auth_service_adapter.dart';
-import '../../profile/services/user_service_adapter.dart';
 import '../services/carbon_service.dart';
 
 class EditFuelConsumptionScreen extends StatefulWidget {
@@ -19,7 +17,7 @@ class EditFuelConsumptionScreen extends StatefulWidget {
   final String transportationMode; // Public Transport or Private Vehicle
 
   const EditFuelConsumptionScreen({
-    Key? key,
+    super.key,
     required this.itemType,
     required this.quantity,
     required this.date,
@@ -27,7 +25,7 @@ class EditFuelConsumptionScreen extends StatefulWidget {
     this.imageUrl,
     required this.documentId,
     required this.transportationMode,
-  }) : super(key: key);
+  });
 
   @override
   State<EditFuelConsumptionScreen> createState() => _EditFuelConsumptionScreenState();
@@ -35,8 +33,6 @@ class EditFuelConsumptionScreen extends StatefulWidget {
 
 class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
   // Services
-  final AuthServiceAdapter _authService = AuthServiceAdapter();
-  final UserServiceAdapter _userService = UserServiceAdapter();
   final CarbonService _carbonService = CarbonService();
 
   // Master data loaded from API
@@ -167,7 +163,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -197,7 +193,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                         decoration: BoxDecoration(
                           border: !isLast ? Border(
                             bottom: BorderSide(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ) : null,
@@ -260,7 +256,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -288,7 +284,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                         decoration: BoxDecoration(
                           border: !isLast ? Border(
                             bottom: BorderSide(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ) : null,
@@ -346,14 +342,16 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
         });
       }
     } catch (e) {
-      print('Error picking image: $e');
+      debugPrint('Error picking image: $e');
       // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to pick image: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
   
@@ -373,7 +371,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
               surface: Color(0xFFE4FFAC),
               onSurface: Color(0xFF5D6C24),
             ),
-            dialogBackgroundColor: const Color(0xFFE4FFAC),
+            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFFE4FFAC)),
           ),
           child: child!,
         );
@@ -544,7 +542,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.25),
+                                    color: Colors.black.withValues(alpha: 0.25),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -603,7 +601,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.25),
+                                      color: Colors.black.withValues(alpha: 0.25),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -679,7 +677,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.25),
+                                color: Colors.black.withValues(alpha: 0.25),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -724,7 +722,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                               Switch(
                                 value: _useCustomEfficiency,
                                 onChanged: _toggleCustomEfficiency,
-                                activeColor: const Color(0xFFE4FFAC),
+                                activeThumbColor: const Color(0xFFE4FFAC),
                                 activeTrackColor: const Color(0xFF5D6C24),
                                 inactiveThumbColor: Colors.white,
                                 inactiveTrackColor: Colors.white30,
@@ -743,7 +741,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.25),
+                                    color: Colors.black.withValues(alpha: 0.25),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -795,7 +793,7 @@ class _EditFuelConsumptionScreenState extends State<EditFuelConsumptionScreen> {
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.25),
+                                  color: Colors.black.withValues(alpha: 0.25),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),

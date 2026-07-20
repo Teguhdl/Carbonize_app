@@ -23,7 +23,10 @@ class CalculatorScreen extends StatefulWidget {
   State<CalculatorScreen> createState() => _CalculatorScreenState();
 }
 
-class _CalculatorScreenState extends State<CalculatorScreen> {
+class _CalculatorScreenState extends State<CalculatorScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   // Services
   final AuthServiceAdapter _authService = AuthServiceAdapter();
   final UserServiceAdapter _userService = UserServiceAdapter();
@@ -386,6 +389,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -463,75 +467,6 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
                 const SizedBox(height: 100),
               ],
-            ),
-          ),
-        ),
-
-        // Bottom navigation bar
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 20,
-          child: Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.70,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0BB78),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // PROFILE ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/profile');
-                    },
-                    child: Image.asset(
-                      'assets/icons/profileunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                  
-                  // HOME ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
-                    child: Image.asset(
-                      'assets/icons/homeunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                  
-                  // CALCULATOR BUTTON (SELECTED - BROWN CONTAINER)
-                  Container(
-                    width: 74,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF55481D),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        'assets/icons/calculatorselect_icon.png',
-                        width: 70,
-                        height: 70,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),

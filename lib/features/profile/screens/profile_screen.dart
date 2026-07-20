@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../utils/constants.dart';
 import '../../auth/services/auth_service_adapter.dart';
 import '../services/user_service_adapter.dart';
-import '../../../widgets/custom_button.dart';
 import 'edit_profile_screen.dart';
-import 'terms_policies_screen.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
@@ -16,7 +14,10 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final AuthServiceAdapter _authService = AuthServiceAdapter();
   final UserServiceAdapter _userService = UserServiceAdapter();
   String _username = '';
@@ -38,27 +39,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _authService.loadCurrentUser();
       final currentUser = _authService.currentUser;
       if (currentUser != null) {
+        // Fallback: gunakan data lokal dulu agar UI tidak kosong saat offline
+        setState(() {
+          _username = currentUser.displayName ?? 'User';
+          _email = currentUser.email ?? '';
+        });
+
         Map<String, dynamic> data = await _userService.getUserData(currentUser.uid);
         setState(() {
-          _username = data['username'] ?? data['name'] ?? 'User';
+          _username = data['username'] ?? data['name'] ?? currentUser.displayName ?? 'User';
           _email = currentUser.email ?? data['email'] ?? '';
           _profileImageUrl = data['profileImageUrl'];
           _profileImageBase64 = data['profileImageBase64'];
           
-          print('Loaded profile data - Username: $_username, Email: $_email');
-          print('Loaded profile image - URL: ${_profileImageUrl != null ? 'exists' : 'null'}, Base64: ${_profileImageBase64 != null ? 'exists' : 'null'}');
+          debugPrint('Loaded profile data - Username: $_username, Email: $_email');
+          debugPrint('Loaded profile image - URL: ${_profileImageUrl != null ? 'exists' : 'null'}, Base64: ${_profileImageBase64 != null ? 'exists' : 'null'}');
           
           _isLoading = false;
         });
       } else {
-        print('Current user is null');
+        debugPrint('Current user is null');
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Koneksi terputus. Menggunakan data lokal.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
         setState(() {
           _isLoading = false;
         });
@@ -73,7 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Navigator.pushReplacementNamed(context, '/login');
       }
     } catch (e) {
-      print('Error during logout: $e');
+      debugPrint('Error during logout: $e');
       // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -163,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _profileImageBase64 = imageData['profileImageBase64'];
             }
             
-            print('Updated profile image - Base64: ${_profileImageBase64 != null ? 'exists' : 'null'}, URL: ${_profileImageUrl != null ? 'exists' : 'null'}');
+            debugPrint('Updated profile image - Base64: ${_profileImageBase64 != null ? 'exists' : 'null'}, URL: ${_profileImageUrl != null ? 'exists' : 'null'}');
           });
           
           // Show success message
@@ -180,11 +193,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           throw Exception('User not logged in');
         }
       } else {
-        print('No image selected');
+        debugPrint('No image selected');
         // User cancelled image selection, no need to show error
       }
     } catch (e) {
-      print('Error picking or uploading image: $e');
+      debugPrint('Error picking or uploading image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -205,6 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -276,7 +290,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
+                          color: Colors.black.withValues(alpha: 0.25),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -298,6 +312,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 
+                const SizedBox(height: 20),
+                Text(
+                  _username,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _email,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
+                ),
                 const SizedBox(height: 30),
                 
                 // Profile Options Card
@@ -308,7 +339,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -341,17 +372,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         
                         // No divider after Edit Profile
                         
-                        // Report a Problem Option
-                        _buildProfileOption(
-                          icon: 'assets/icons/reportaproblem_icon.png',
-                          title: 'Report a problem',
-                          onTap: () {
-                            Navigator.pushNamed(context, '/report');
-                          },
-                        ),
-                        
-                        // No divider between Report a problem and Terms and Policies
-                        
                         // Terms and Policies Option
                         _buildProfileOption(
                           icon: 'assets/icons/termsandpolicies_icon.png',
@@ -375,75 +395,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-        
-        // Bottom navigation bar
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 20,
-          child: Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.70,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0BB78),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // PROFILE ICON (SELECTED)
-                  Container(
-                    width: 74,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF55481D),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Image.asset(
-                        'assets/icons/profileselect_icon.png',
-                        width: 70,
-                        height: 70,
-                      ),
-                    ),
-                  ),
-                  
-                  // HOME ICON (UNSELECTED)
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
-                    child: Image.asset(
-                      'assets/icons/homeunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                  
-                  // CALCULATOR ICON
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/calculator');
-                    },
-                    child: Image.asset(
-                      'assets/icons/calculatorunselect_icon.png',
-                      width: 70,
-                      height: 70,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
@@ -488,18 +439,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildDivider() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20),
-      child: Divider(
-        color: Colors.white24,
-        height: 1,
-      ),
-    );
-  }
+
 
   Widget _buildProfileImage() {
-    print('Building profile image: URL=${_profileImageUrl}, Base64=${_profileImageBase64 != null ? 'exists' : 'null'}');
+    debugPrint('Building profile image: URL=$_profileImageUrl, Base64=${_profileImageBase64 != null ? 'exists' : 'null'}');
     
     // If there's Base64 data, use it as primary source
     if (_profileImageBase64 != null && _profileImageBase64!.isNotEmpty) {
@@ -515,13 +458,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             cacheWidth: 268, // 2x for high DPI
             cacheHeight: 268, // 2x for high DPI
             errorBuilder: (context, error, stackTrace) {
-              print('Error loading profile image from Base64: $error');
+              debugPrint('Error loading profile image from Base64: $error');
               return _buildDefaultProfileImage();
             },
           ),
         );
       } catch (e) {
-        print('Error decoding Base64 image: $e');
+          debugPrint('Error decoding Base64 image: $e');
         // If Base64 fails, try URL as fallback
         if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) {
           return _buildNetworkImage();
@@ -550,7 +493,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         cacheWidth: 268, // 2x for high DPI
         cacheHeight: 268, // 2x for high DPI
         errorBuilder: (context, error, stackTrace) {
-          print('Error loading profile image from URL: $error');
+          debugPrint('Error loading profile image from URL: $error');
           return _buildDefaultProfileImage();
         },
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/token_storage.dart';
@@ -18,9 +19,9 @@ class AuthService {
       // Debug: print token info
       final sanctumToken = data['sanctum_token']?.toString() ?? 'NULL';
       final customToken = data['custom_token']?.toString() ?? 'NULL';
-      print('[AuthService] Login response keys: ${data.keys.toList()}');
-      print('[AuthService] sanctum_token: ${sanctumToken.length} chars, starts with: ${sanctumToken.substring(0, sanctumToken.length > 20 ? 20 : sanctumToken.length)}...');
-      print('[AuthService] custom_token: ${customToken.length} chars, starts with: ${customToken.substring(0, customToken.length > 20 ? 20 : customToken.length)}...');
+      debugPrint('[AuthService] Login response keys: ${data.keys.toList()}');
+      debugPrint('[AuthService] sanctum_token: ${sanctumToken.length} chars, starts with: ${sanctumToken.substring(0, sanctumToken.length > 20 ? 20 : sanctumToken.length)}...');
+      debugPrint('[AuthService] custom_token: ${customToken.length} chars, starts with: ${customToken.substring(0, customToken.length > 20 ? 20 : customToken.length)}...');
 
       // Save auth data locally
       await TokenStorage.saveAuthData(
@@ -34,8 +35,8 @@ class AuthService {
       // Debug: verify saved tokens
       final savedSanctum = await TokenStorage.getToken();
       final savedCustom = await TokenStorage.getCustomToken();
-      print('[AuthService] Verified saved sanctum: ${savedSanctum != null ? "${savedSanctum.length} chars" : "NULL"}');
-      print('[AuthService] Verified saved custom: ${savedCustom != null ? "${savedCustom.length} chars" : "NULL"}');
+      debugPrint('[AuthService] Verified saved sanctum: ${savedSanctum != null ? "${savedSanctum.length} chars" : "NULL"}');
+      debugPrint('[AuthService] Verified saved custom: ${savedCustom != null ? "${savedCustom.length} chars" : "NULL"}');
 
       return data;
     } catch (e) {
@@ -62,9 +63,11 @@ class AuthService {
   Future<void> logout() async {
     try {
       await _api.post(ApiEndpoints.logout);
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Even if API call fails, clear local tokens
-      print('Logout API error: $e');
+      debugPrint('Logout API error: $e');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Stack trace: $stackTrace');
     } finally {
       await TokenStorage.clearAll();
     }

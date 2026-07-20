@@ -1,6 +1,6 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'user_service.dart' as api;
-import '../../calculator/services/carbon_service.dart';
 
 class UserServiceAdapter {
   final api.UserService _apiUser = api.UserService();
@@ -23,14 +23,14 @@ class UserServiceAdapter {
         'createdAt': user.createdAt,
       };
     } catch (e) {
-      print('Error getting user data: $e');
+      debugPrint('Error getting user data: $e');
       rethrow;
     }
   }
 
   // Create user document - no-op, handled by register API
   Future<void> createUserDocument(dynamic user, String username) async {
-    print('createUserDocument: No-op in API mode, user created during registration');
+    debugPrint('createUserDocument: No-op in API mode, user created during registration');
   }
 
   // Update user data
@@ -40,14 +40,14 @@ class UserServiceAdapter {
 
   // Update last login - no-op, handled by backend
   Future<void> updateLastLogin(String uid) async {
-    print('updateLastLogin: No-op in API mode, handled by backend');
+    debugPrint('updateLastLogin: No-op in API mode, handled by backend');
   }
 
   // Save consumption entry - legacy compatibility wrapper
   // New code should call CarbonService directly instead
   Future<void> saveConsumptionEntry(String uid, Map<String, dynamic> entryData, File? imageFile) async {
     // This is kept for backward compatibility but new dialogs use CarbonService directly
-    print('saveConsumptionEntry: use CarbonService directly instead');
+    debugPrint('saveConsumptionEntry: use CarbonService directly instead');
   }
 
   // Upload profile image
@@ -57,7 +57,7 @@ class UserServiceAdapter {
 
   // Update entry image
   Future<Map<String, dynamic>> updateEntryImage(String uid, String documentId, File? imageFile) async {
-    print('updateEntryImage: Not yet implemented in API mode');
+    debugPrint('updateEntryImage: Not yet implemented in API mode');
     return {};
   }
 }

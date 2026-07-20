@@ -97,7 +97,7 @@ class _AddFoodEntryDialogState extends State<_AddFoodEntryDialog> {
             primary: Color(0xFF5D6C24), onPrimary: Colors.white,
             surface: Color(0xFFE4FFAC), onSurface: Color(0xFF5D6C24),
           ),
-          dialogBackgroundColor: const Color(0xFFE4FFAC),
+          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFFE4FFAC)),
         ),
         child: child!,
       ),
@@ -135,7 +135,6 @@ class _AddFoodEntryDialogState extends State<_AddFoodEntryDialog> {
     if (_isSubmitting) return;
     if (_selectedItem == null) { _snack('Please select an item type'); return; }
     if (_quantityController.text.isEmpty) { _snack('Please enter a quantity'); return; }
-    if (_selectedImage == null) { _snack('Documentation image is required'); return; }
 
     setState(() => _isSubmitting = true);
     try {
@@ -146,7 +145,7 @@ class _AddFoodEntryDialogState extends State<_AddFoodEntryDialog> {
         foodItemId: _selectedItem!.id,
         quantity:   quantity,
         entryDate:  dateStr,
-        imagePath:  _selectedImage!.path,
+        imagePath:  _selectedImage?.path,
       );
 
       // Navigate to entry date if different from viewing date
@@ -297,7 +296,7 @@ class _AddFoodEntryDialogState extends State<_AddFoodEntryDialog> {
     height: 50,
     decoration: BoxDecoration(
       color: const Color(0xFFA4B465), borderRadius: BorderRadius.circular(8),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 4))],
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 4))],
     ),
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: TextField(
@@ -315,7 +314,7 @@ class _AddFoodEntryDialogState extends State<_AddFoodEntryDialog> {
     height: 50,
     decoration: BoxDecoration(
       color: const Color(0xFFA4B465), borderRadius: BorderRadius.circular(8),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 4))],
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 4))],
     ),
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

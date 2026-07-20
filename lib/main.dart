@@ -3,12 +3,15 @@ import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/register_screen.dart';
 import 'features/auth/screens/splash_screen.dart';
 import 'features/home/screens/home_screen.dart';
+import 'features/home/screens/main_screen.dart';
 import 'features/profile/screens/profile_screen.dart';
 import 'features/calculator/screens/calculator_screen.dart';
 import 'features/profile/screens/terms_policies_screen.dart';
 import 'features/profile/screens/report_problem_screen.dart';
 import 'features/calculator/screens/food_packaging_details_screen.dart';
 import 'features/calculator/screens/fuel_consumption_details_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +27,7 @@ class MyApp extends StatelessWidget {
       title: 'Carbonize App',
       debugShowCheckedModeBanner: false,
       restorationScopeId: 'app',
-      navigatorKey: GlobalKey<NavigatorState>(),
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5D6C24)),
         useMaterial3: true,
@@ -34,6 +37,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
+        '/main': (context) => const MainScreen(),
         '/home': (context) => const HomeScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/calculator': (context) => const CalculatorScreen(),

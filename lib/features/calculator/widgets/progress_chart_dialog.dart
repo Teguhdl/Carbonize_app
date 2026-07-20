@@ -136,7 +136,7 @@ class _ProgressChartDialogState extends State<_ProgressChartDialog> {
               surface: Color(0xFFE4FFAC),
               onSurface: Color(0xFF5D6C24),
             ),
-            dialogBackgroundColor: const Color(0xFFE4FFAC),
+            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFFE4FFAC)),
           ),
           child: child!,
         );

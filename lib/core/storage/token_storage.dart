@@ -1,6 +1,8 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class TokenStorage {
+  static const _storage = FlutterSecureStorage();
+
   static const String _sanctumTokenKey = 'sanctum_token';
   static const String _customTokenKey = 'custom_token';
   static const String _userIdKey = 'user_id';
@@ -15,42 +17,40 @@ class TokenStorage {
     required String userName,
     required String userEmail,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_sanctumTokenKey, sanctumToken);
-    await prefs.setString(_customTokenKey, customToken);
-    await prefs.setInt(_userIdKey, userId);
-    await prefs.setString(_userNameKey, userName);
-    await prefs.setString(_userEmailKey, userEmail);
+    await _storage.write(key: _sanctumTokenKey, value: sanctumToken);
+    await _storage.write(key: _customTokenKey, value: customToken);
+    await _storage.write(key: _userIdKey, value: userId.toString());
+    await _storage.write(key: _userNameKey, value: userName);
+    await _storage.write(key: _userEmailKey, value: userEmail);
   }
 
   // Get sanctum token
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_sanctumTokenKey);
+    return await _storage.read(key: _sanctumTokenKey);
   }
 
   // Get custom token
   static Future<String?> getCustomToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_customTokenKey);
+    return await _storage.read(key: _customTokenKey);
   }
 
   // Get user ID
   static Future<int?> getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_userIdKey);
+    final idString = await _storage.read(key: _userIdKey);
+    if (idString != null) {
+      return int.tryParse(idString);
+    }
+    return null;
   }
 
   // Get user name
   static Future<String?> getUserName() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_userNameKey);
+    return await _storage.read(key: _userNameKey);
   }
 
   // Get user email
   static Future<String?> getUserEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_userEmailKey);
+    return await _storage.read(key: _userEmailKey);
   }
 
   // Check if user has valid token
@@ -61,11 +61,10 @@ class TokenStorage {
 
   // Clear all auth data (on logout)
   static Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_sanctumTokenKey);
-    await prefs.remove(_customTokenKey);
-    await prefs.remove(_userIdKey);
-    await prefs.remove(_userNameKey);
-    await prefs.remove(_userEmailKey);
+    await _storage.delete(key: _sanctumTokenKey);
+    await _storage.delete(key: _customTokenKey);
+    await _storage.delete(key: _userIdKey);
+    await _storage.delete(key: _userNameKey);
+    await _storage.delete(key: _userEmailKey);
   }
 }

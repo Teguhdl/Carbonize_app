@@ -1,10 +1,31 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import '../../main.dart';
 import 'api_endpoints.dart';
 import '../storage/token_storage.dart';
 
 class ApiClient {
   final http.Client _client = http.Client();
+  static const int timeoutSeconds = 15;
+
+  // Generic request executor with error handling
+  Future<http.Response> _executeRequest(Future<http.Response> Function() requestFunc) async {
+    try {
+      final response = await requestFunc().timeout(const Duration(seconds: timeoutSeconds));
+      return response;
+    } on TimeoutException {
+      throw ApiException(message: 'Koneksi terputus. Waktu tunggu habis (timeout).', statusCode: 408);
+    } on SocketException {
+      throw ApiException(message: 'Tidak ada koneksi internet atau server mati.', statusCode: 503);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Terjadi kesalahan jaringan: $e', statusCode: 500);
+    }
+  }
 
   // GET request
   Future<Map<String, dynamic>> get(String endpoint, {Map<String, String>? queryParams}) async {
@@ -14,10 +35,10 @@ class ApiClient {
     }
 
     final headers = await _buildHeaders();
-    print('[ApiClient] GET $uri');
-    print('[ApiClient] Headers: ${headers.keys.map((k) => '$k: ${k == 'Authorization' || k == 'X-Custom-Token' ? '${headers[k]!.substring(0, headers[k]!.length > 30 ? 30 : headers[k]!.length)}...' : headers[k]}').join(', ')}');
-    final response = await _client.get(uri, headers: headers);
-
+    debugPrint('[ApiClient] GET $uri');
+    debugPrint('[ApiClient] Headers: ${headers.keys.map((k) => '$k: ${k == 'Authorization' || k == 'X-Custom-Token' ? '${headers[k]!.substring(0, headers[k]!.length > 30 ? 30 : headers[k]!.length)}...' : headers[k]}').join(', ')}');
+    
+    final response = await _executeRequest(() => _client.get(uri, headers: headers));
     return _handleResponse(response);
   }
 
@@ -26,12 +47,11 @@ class ApiClient {
     final uri = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _buildHeaders();
 
-    final response = await _client.post(
+    final response = await _executeRequest(() => _client.post(
       uri,
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
-    );
-
+    ));
     return _handleResponse(response);
   }
 
@@ -67,10 +87,19 @@ class ApiClient {
       request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
     }
 
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    return _handleResponse(response);
+    // executeRequest wrapper for StreamedResponse
+    try {
+      final streamedResponse = await request.send().timeout(const Duration(seconds: timeoutSeconds));
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } on TimeoutException {
+      throw ApiException(message: 'Koneksi terputus. Waktu unggah habis (timeout).', statusCode: 408);
+    } on SocketException {
+      throw ApiException(message: 'Tidak ada koneksi internet saat mengunggah.', statusCode: 503);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException(message: 'Terjadi kesalahan unggah: $e', statusCode: 500);
+    }
   }
 
   // PUT request
@@ -78,12 +107,11 @@ class ApiClient {
     final uri = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _buildHeaders();
 
-    final response = await _client.put(
+    final response = await _executeRequest(() => _client.put(
       uri,
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
-    );
-
+    ));
     return _handleResponse(response);
   }
 
@@ -92,8 +120,7 @@ class ApiClient {
     final uri = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _buildHeaders();
 
-    final response = await _client.delete(uri, headers: headers);
-
+    final response = await _executeRequest(() => _client.delete(uri, headers: headers));
     return _handleResponse(response);
   }
 
@@ -113,19 +140,41 @@ class ApiClient {
     }
     
     // custom.token middleware expects: X-Api-Token: {custom_token}
-    // (see ValidateCustomToken.php: $request->header('X-Api-Token'))
     if (customToken != null) {
       headers['X-Api-Token'] = customToken;
     }
 
-    print('[ApiClient] Headers built - sanctumToken: ${sanctumToken != null ? "present(${sanctumToken.length} chars)" : "MISSING"}, customToken(X-Api-Token): ${customToken != null ? "present(${customToken.length} chars)" : "MISSING"}');
+    debugPrint('[ApiClient] Headers built - sanctumToken: ${sanctumToken != null ? "present(${sanctumToken.length} chars)" : "MISSING"}, customToken(X-Api-Token): ${customToken != null ? "present(${customToken.length} chars)" : "MISSING"}');
 
     return headers;
   }
 
   // Handle API response
   Map<String, dynamic> _handleResponse(http.Response response) {
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    // 401 Unauthorized handling (token expired/invalid)
+    if (response.statusCode == 401) {
+       TokenStorage.clearAll(); // Clean local tokens
+       
+       // Redirect to login screen if context is available
+       if (navigatorKey.currentState != null) {
+         Future.microtask(() {
+           navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+         });
+       }
+       
+       throw ApiException(
+         message: 'Sesi Anda telah berakhir (401). Silakan login kembali.', 
+         statusCode: 401
+       );
+    }
+
+    late Map<String, dynamic> body;
+    try {
+      body = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      // If server returns HTML instead of JSON (e.g. 500 error page or routing error)
+      throw ApiException(message: 'Server mengembalikan respons yang tidak terduga', statusCode: response.statusCode);
+    }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
@@ -133,8 +182,8 @@ class ApiClient {
 
     // Extract error message
     final message = body['message'] ?? 'Terjadi kesalahan pada server';
-    print('[ApiClient] API Error ${response.statusCode}: $message');
-    print('[ApiClient] Full response: ${response.body}');
+    debugPrint('[ApiClient] API Error ${response.statusCode}: $message');
+    debugPrint('[ApiClient] Full response: ${response.body}');
     throw ApiException(message: message, statusCode: response.statusCode);
   }
 }
